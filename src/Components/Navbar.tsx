@@ -34,7 +34,7 @@ const Navbar = () => {
   };
 
   return (
-    <nav className="flex justify-between items-center px-6 py-4 text-white shadow-md md:px-20">
+    <nav className="flex sticky top-0 z-50 justify-between items-center px-6 py-4 text-white bg-black shadow-md md:px-20">
     {/* App Title with gradient text */}
     <div className="text-2xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 via-pink-500 to-red-500">
       Patent Registry

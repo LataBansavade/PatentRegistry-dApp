@@ -287,7 +287,8 @@ const CreatePatent = () => {
 
 
   return (
-    <div className="relative p-10 mx-10 max-w-3xl bg-white rounded-lg shadow-md sm:mx-auto">
+    <div className="h-[100vh] bg-black py-5">
+      <div className="relative p-10 mx-10 max-w-3xl bg-white rounded-lg shadow-md sm:mx-auto">
       <Toaster
         position="top-right"
         toastOptions={{
@@ -462,6 +463,7 @@ const CreatePatent = () => {
           </div>
         </div>
       </form>
+    </div>
     </div>
   );
 };

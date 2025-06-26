@@ -7,7 +7,7 @@ import { Toaster } from "react-hot-toast";
 
 const App = () => {
   return (
-    <div className="h-screen bg-black">
+    <div className="h-[100vh] bg-black">
       <Navbar />
       <Routes>
         <Route path="/" element={<AllPatent />} />
