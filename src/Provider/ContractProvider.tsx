@@ -58,6 +58,7 @@ export const ContractProvider = ({ children }: { children: ReactNode }) => {
           console.warn('No Ethereum wallet found');
           setContract(readOnlyContract);
           setError('No Ethereum wallet found. Please install MetaMask.');
+          window.alert('No Ethereum wallet found. Please install MetaMask.');
           return;
         }
 
@@ -72,6 +73,7 @@ export const ContractProvider = ({ children }: { children: ReactNode }) => {
             if (network.chainId !== 11155111n) {
               setContract(readOnlyContract);
               setError('Please switch your wallet to the Sepolia Testnet.');
+              window.alert('Please switch your wallet to the Sepolia Testnet.');
               return;
             }
 
@@ -94,10 +96,12 @@ export const ContractProvider = ({ children }: { children: ReactNode }) => {
         console.log('Using read-only contract (fallback)');
         setContract(readOnlyContract);
         setError('Write access disabled. Connect your wallet to enable full features.');
+        window.alert('Write access disabled. Connect your wallet to enable full features.');
 
       } catch (err) {
         console.error('Error initializing contract:', err);
         setError('Failed to initialize smart contract. Please try again later.');
+        window.alert('Failed to initialize smart contract. Please try again later.');
         setContract(null);
       } finally {
         setIsLoading(false);

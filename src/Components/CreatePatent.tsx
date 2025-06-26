@@ -37,7 +37,7 @@ const CreatePatent = () => {
   }, [error]);
   
   const contractContext = useContract();
-  const { contract, isConnected } = contractContext || {};
+  const {contract, isConnected} = contractContext || {};
   
   const uploadToIPFS = async (file: File) => {
     const toastId = toast.loading(`Uploading ${file.name}...`);
