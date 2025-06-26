@@ -217,6 +217,15 @@ const CreatePatent = () => {
           border: '1px solid #FCA5A5',
         },
       });
+
+      
+  // Additional check to ensure contract has a signer
+  if (!contract?.signer) {
+    const errorMsg = 'No signer available. Please ensure your wallet is connected properly.';
+    setError(errorMsg);
+    toast.error(errorMsg);
+    return;
+  }
       
       console.log('Toast should be visible now');
       return;
