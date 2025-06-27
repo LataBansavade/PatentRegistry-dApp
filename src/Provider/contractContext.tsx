@@ -4,7 +4,7 @@ import { Contract } from "ethers";
 
 export const ContractContext = createContext<{
     contract: Contract;
-    token: Contract;
+    
 } | null>(null);
 
 export const useContract = () => {
