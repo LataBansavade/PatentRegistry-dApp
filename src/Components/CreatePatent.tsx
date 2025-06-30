@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef } from 'react';
 import type { ChangeEvent, FormEvent } from 'react';
 import { FiUpload, FiX, FiFile, FiLoader, FiCheckCircle, FiExternalLink, FiAlertCircle } from 'react-icons/fi';
 import { useContract } from '../Provider/ContractProvider';
@@ -26,15 +26,21 @@ const CreatePatent = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   
 
+  
   // Show error toasts when error state changes
-  useEffect(() => {
-    if (error) {
-      toast.error(error, {
-        icon: <FiAlertCircle className="text-red-500" />,
-        duration: 5000,
-      });
-    }
-  }, [error]);
+  const showErrorToast = (message: string) => {
+    // Dismiss any existing error toasts to prevent duplicates
+    toast.dismiss();
+    toast.error(message, {
+      icon: <FiAlertCircle className="text-red-500" />,
+      duration: 5000,
+      style: {
+        background: '#FEE2E2',
+        color: '#B91C1C',
+        border: '1px solid #FCA5A5',
+      },
+    });
+  };
   
   const contractContext = useContract();
   const {contract, isConnected} = contractContext || {};
@@ -44,13 +50,10 @@ const CreatePatent = () => {
     try {
       // Hardcoded JWT token for Pinata
       const PINATA_JWT = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySW5mb3JtYXRpb24iOnsiaWQiOiJkNjYxYjgwYy02MjMyLTQzOTktYjE3Zi05ZTNmYjlkMGJjNTAiLCJlbWFpbCI6ImxhdGFiYW5zYXZhZGUyNEBnbWFpbC5jb20iLCJlbWFpbF92ZXJpZmllZCI6dHJ1ZSwicGluX3BvbGljeSI6eyJyZWdpb25zIjpbeyJkZXNpcmVkUmVwbGljYXRpb25Db3VudCI6MSwiaWQiOiJGUkExIn0seyJkZXNpcmVkUmVwbGljYXRpb25Db3VudCI6MSwiaWQiOiJOWUMxIn1dLCJ2ZXJzaW9uIjoxfSwibWZhX2VuYWJsZWQiOmZhbHNlLCJzdGF0dXMiOiJBQ1RJVkUifSwiYXV0aGVudGljYXRpb25UeXBlIjoic2NvcGVkS2V5Iiwic2NvcGVkS2V5S2V5IjoiZTEwZThhYmU5ZWQ5ODNjNzhlMDAiLCJzY29wZWRLZXlTZWNyZXQiOiIwNDQxZmQ4MDNlZjVkY2Y2MWFjMWYyZjQxZTM5ZGE3ZWIyZmI2OGVlNDI1YTk2ZmRhMDg4YzQ5NGEzY2UyOWNiIiwiZXhwIjoxNzgyMjk4MDMzfQ.eiF4rWIbmc9kghOxk-T6nA6dYlZ3qJCCP0ZozwNZ_mY";
-
       
-      // Create a FormData object to send the file
       const formData = new FormData();
       formData.append('file', file);
       
-      // Add metadata for the file
       const metadata = {
         name: file.name,
         keyvalues: {
@@ -59,31 +62,22 @@ const CreatePatent = () => {
         }
       };
       formData.append('pinataMetadata', JSON.stringify(metadata));
+      formData.append('pinataOptions', JSON.stringify({ cidVersion: 0 }));
       
-      const options = {
-        cidVersion: 0
-      };
-      formData.append('pinataOptions', JSON.stringify(options));
-      
-      // console.log('Uploading file to Pinata:', file.name, 'Size:', file.size);
-      
-      // Upload to Pinata
       const response = await fetch('https://api.pinata.cloud/pinning/pinFileToIPFS', {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${PINATA_JWT}`,
-         
-        },
+        headers: { 'Authorization': `Bearer ${PINATA_JWT}` },
         body: formData
       });
       
-      // console.log('Pinata response status:', response.status);
       const result = await response.json();
-      // console.log('Pinata response:', result);
       
       if (!response.ok) {
-        const errorMsg = result.error?.details || 'Failed to upload file to Pinata';
-        toast.error(errorMsg, { id: toastId });
+        const errorMsg = `Failed to upload ${file.name}: ${result.error?.details || 'Unknown error'}`;
+        toast.error(errorMsg, { 
+          id: toastId,
+          icon: <FiAlertCircle className="text-red-500" />
+        });
         throw new Error(errorMsg);
       }
       
@@ -100,7 +94,10 @@ const CreatePatent = () => {
       };
     } catch (error) {
       const errorMsg = `Failed to upload ${file.name}: ${error instanceof Error ? error.message : 'Unknown error'}`;
-      toast.error(errorMsg, { id: toastId });
+      toast.error(errorMsg, { 
+        id: toastId,
+        icon: <FiAlertCircle className="text-red-500" />
+      });
       throw new Error(errorMsg);
     }
   };
@@ -199,42 +196,18 @@ const CreatePatent = () => {
     setError(null);
     setTransactionHash(null);
     
-    // Check wallet connection
+    // Check wallet connection and contract
     if (!isConnected || !contract) {
       const errorMsg = 'Please connect your wallet first to create a patent';
-      console.log('Wallet not connected, showing error:', errorMsg);
-      
-      // Set error state
       setError(errorMsg);
-      
-      // Show toast with error
-      toast.error(errorMsg, {
-        icon: <FiAlertCircle className="text-red-500" />,
-        duration: 5000,
-        style: {
-          background: '#FEE2E2',
-          color: '#B91C1C',
-          border: '1px solid #FCA5A5',
-        },
-      });
-
-      
-  // Additional check to ensure contract has a signer
-  if (!contract?.signer) {
-    const errorMsg = 'No signer available. Please ensure your wallet is connected properly.';
-    setError(errorMsg);
-    toast.error(errorMsg);
-    return;
-  }
-      
-      console.log('Toast should be visible now');
+      showErrorToast(errorMsg);
       return;
     }
     
     if (files.length === 0) {
       const errorMsg = 'Please upload at least one file';
       setError(errorMsg);
-      toast.error(errorMsg);
+      showErrorToast(errorMsg);
       return;
     }
     
@@ -285,9 +258,7 @@ const CreatePatent = () => {
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to create patent. Please try again.';
       setError(errorMessage);
-      toast.error(errorMessage, { 
-        icon: <FiAlertCircle className="text-red-500" />
-      });
+
     } finally {
       setIsUploading(false);
       setIsSubmitting(false);
@@ -462,7 +433,7 @@ const CreatePatent = () => {
               type="submit"
               className="flex items-center px-6 py-2 text-white bg-green-600 rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed"
               title={!title ? 'Title is required' : !description ? 'Description is required' : !isConnected ? 'Please connect your wallet' : isUploading ? 'Uploading files...' : isSubmitting ? 'Submitting...' : ''}
-              // disabled={!title || !description || isUploading || isSubmitting || !isConnected}
+              disabled={!title || !description || isUploading || isSubmitting || !isConnected}
             >
               {(isUploading || isSubmitting) && (
                 <FiLoader className="mr-2 -ml-1 w-4 h-4 animate-spin" />

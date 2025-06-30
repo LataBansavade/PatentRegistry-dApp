@@ -18,7 +18,7 @@ interface Patent {
   description: string;
   ipfsHashes: string[];
   timestamp: number;
-  isDeleted: boolean;
+  isDeleted: boolean; 
 }
 
 
@@ -28,11 +28,11 @@ const AllPatent = () => {
   const [error, setError] = useState<string | null>(null);
   const { contract, isLoading: isContractLoading } = useContract();
 
-  console.log("Contract:", contract);
-  console.log("isContractLoading:", isContractLoading);
+  // console.log("Contract:", contract);
+  // console.log("isContractLoading:", isContractLoading);
   
 
-  const showErrorToast = (message: string, duration = 5000) => {
+  const showErrorToast = (message: string, duration = 3000) => {
     toast.error(message, {
       icon: <FiAlertCircle className="text-yellow-500" />,
       duration,
@@ -42,9 +42,8 @@ const AllPatent = () => {
     });
   };
 
-  const showLoadingToast = (message: string) => {
-    return toast.loading(message);
-  };
+  // Loading state is now handled by the UI component
+  // No need for a separate loading toast
 
   const parsePatentData = (patentData: any, index: number): Patent | null => {
     try {
@@ -75,19 +74,19 @@ const AllPatent = () => {
 
       return patent;
     } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : "Unknown error";
-      console.error(`Error parsing patent at index ${index}:`, errorMsg);
+      // const errorMsg = error instanceof Error ? error.message : "Unknown error";
+      // console.error(`Error parsing patent at index ${index}:`, errorMsg);
       return null;
     }
   };
 
   useEffect(() => {
     const fetchPatents = async () => {
-      console.log('Fetching patents...');
-      console.log('Contract state - isLoading:', isContractLoading, 'contract:', contract);
+      // console.log('Fetching patents...');
+      // console.log('Contract state - isLoading:', isContractLoading, 'contract:', contract);
       
       if (isContractLoading) {
-        console.log('Contract is still loading...');
+        // console.log('Contract is still loading...');
         return;
       }
       
@@ -103,51 +102,48 @@ const AllPatent = () => {
     try {
       setIsLoading(true);
       setError(null);
-      showLoadingToast("Fetching patents...");
 
       // Get the total number of patents
       const totalPatents = await contract.patentCount();
-      console.log('Total patents in contract:', totalPatents.toString());
+      // console.log('Total patents in contract:', totalPatents.toString());
       
       const allPatents = [];
 
       // Fetch each patent individually
       for (let i = 0; i < totalPatents; i++) {
         try {
-          console.log(`Fetching patent ${i}...`);
+          // console.log(`Fetching patent ${i}...`);
           // Try direct call first, then fallback to staticCall if needed
           let patent;
           try {
             patent = await contract.getPatent(i);
           } catch (err) {
-            console.log(`Direct call failed for patent ${i}, trying staticCall...`);
+            // console.log(`Direct call failed for patent ${i}, trying staticCall...`);
             patent = await contract.getPatent.staticCall(i);
           }
           
-          console.log(`Raw patent data for ${i}:`, patent);
+          // console.log(`Raw patent data for ${i}:`, patent);
           const formatted = parsePatentData(patent, i);
-          console.log(`Formatted patent ${i}:`, formatted);
+          // console.log(`Formatted patent ${i}:`, formatted);
           
           if (formatted) {
             allPatents.push(formatted);
           } else {
-            console.log(`Skipping deleted patent ${i}`);
+            // console.log(`Skipping deleted patent ${i}`);
           }
         } catch (error: any) {
           // Skip deleted patents
           if (error.message && error.message.includes("Patent is deleted")) {
-            console.log(`Patent ${i} is deleted, skipping...`);
+            // console.log(`Patent ${i} is deleted, skipping...`);
             continue;
           }
-          console.warn(`Error fetching patent ${i}:`, error);
+          // console.warn(`Error fetching patent ${i}:`, error);
         }
       }
 
       setPatents(allPatents);
-      toast.dismiss();
 
     } catch (error: unknown) {
-      toast.dismiss();
       const errorMessage = error instanceof Error ? error.message : "Unknown error";
       // Don't show error for "Patent is deleted" as it's expected
       if (!errorMessage.includes("Patent is deleted")) {
@@ -170,32 +166,32 @@ const AllPatent = () => {
     return `${address.substring(0, 6)}...${address.slice(-4)}`;
   };
 
-  // Handle loading and error states with toasts
-  useEffect(() => {
-    if (isContractLoading || isLoading) {
-      const loadingToast = showLoadingToast(
-        isContractLoading 
-          ? "Connecting to blockchain..." 
-          : "Loading patents..."
-      );
-      return () => toast.dismiss(loadingToast);
-    }
-  }, [isContractLoading, isLoading]);
-
+  // Handle error state with toast
   useEffect(() => {
     if (error) {
       showErrorToast(error);
     }
   }, [error]);
 
-  // Show loading state
+
+
+  // Show loading state with a subtle animation
   if (isContractLoading || isLoading) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[200px] space-y-4">
-        <div className="w-12 h-12 rounded-full border-t-2 border-b-2 border-green-500 animate-spin"></div>
-        <p className="text-gray-600">
-          {isContractLoading ? 'Connecting to blockchain...' : 'Loading patents...'}
-        </p>
+      <div className="relative p-10 px-20">
+        <div className="mb-8">
+          <h1 className="text-2xl font-bold text-gray-500">All Patents</h1>
+        </div>
+        <div className="flex flex-col items-center justify-center min-h-[300px] space-y-4 bg-white rounded-lg border border-gray-200 p-8 shadow-sm">
+          <div className="relative">
+            <div className="w-16 h-16 rounded-full border-4 border-blue-100"></div>
+            <div className="absolute top-0 left-0 w-16 h-16 rounded-full border-t-4 border-blue-500 animate-spin"></div>
+          </div>
+          <p className="font-medium text-gray-600">
+            {isContractLoading ? 'Connecting to contract...' : 'Loading patents...'}
+          </p>
+          <p className="text-sm text-gray-400">This may take a moment</p>
+        </div>
       </div>
     );
   }

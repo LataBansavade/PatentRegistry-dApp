@@ -24,7 +24,8 @@ interface Patent {
 
 const MyPatents = () => {
   const [patents, setPatents] = useState<Patent[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(true);
+  const [hasLoaded, setHasLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const { contract, address, isConnected } = useContract();
@@ -42,13 +43,13 @@ const MyPatents = () => {
   
   const fetchMyPatents = async () => {
     if (!contract || !address || !isConnected) {
-      setLoading(false);
-      toast.error("Please connect your wallet to view your patents");
+      setIsLoading(false);
+      setHasLoaded(true);
       return;
     }
 
     try {
-      setLoading(true);
+      setIsLoading(true);
       setError(null);
 
       const myPatentIds = await contract.getMyPatents();
@@ -69,25 +70,69 @@ const MyPatents = () => {
 
       const myPatents = await Promise.all(patentPromises);
       setPatents(myPatents.filter((p) => !p.isDeleted));
+      setHasLoaded(true);
     } catch (err) {
       console.error("Error fetching patents:", err);
       setError("Failed to load patents. Please try again later.");
     } finally {
-      setLoading(false);
+      setIsLoading(false);
     }
   };
 
   useEffect(() => {
-    if (!isConnected || !address || !contract) {
-      setPatents([]);  // Clear patents when wallet disconnects
-      setLoading(false);
-      if (!isConnected) {
-        toast.error(" Please connect your wallet to view your patents");
+    let isMounted = true;
+    
+    const checkConnection = async () => {
+      if (!isConnected || !address || !contract) {
+        if (isMounted) {
+          setPatents([]);
+          setIsLoading(false);
+          setHasLoaded(true);
+        }
+        return;
       }
-      return;
+
+      try {
+        if (isMounted) {
+          setIsLoading(true);
+          await fetchMyPatents();
+        }
+      } catch (error) {
+        console.error('Error checking connection:', error);
+        if (isMounted) {
+          setError('Failed to load patents. Please try again.');
+          setIsLoading(false);
+          setHasLoaded(true);
+        }
+      }
+    };
+
+    // Reset loaded state when connection or contract changes
+    setHasLoaded(false);
+    
+    // Check connection immediately if already connected
+    if (isConnected && contract) {
+      checkConnection();
+    } else {
+      // If not connected, set a small delay to allow for connection
+      const timeoutId = setTimeout(() => {
+        if (isMounted) {
+          if (!isConnected || !contract) {
+            setIsLoading(false);
+            setHasLoaded(true);
+          } else {
+            checkConnection();
+          }
+        }
+      }, 500);
+
+      return () => clearTimeout(timeoutId);
     }
-    fetchMyPatents();
-  }, [contract, address, isConnected]);
+
+    return () => {
+      isMounted = false;
+    };
+  }, [isConnected, contract, address]);
 
   const handleEdit = (patentId: number, currentDescription: string) => {
     setEditingId(patentId);
@@ -150,10 +195,12 @@ const MyPatents = () => {
     }
   };
 
-  if (loading) {
+  // Show loading state while checking for patents if we haven't loaded anything yet
+  if (isLoading || !hasLoaded) {
     return (
-      <div className="flex items-center justify-center min-h-[200px]">
+      <div className="flex flex-col items-center justify-center min-h-[300px] space-y-4">
         <div className="w-12 h-12 rounded-full border-t-2 border-b-2 border-green-500 animate-spin"></div>
+        <p className="text-gray-600">Loading your patents...</p>
       </div>
     );
   }
@@ -247,7 +294,17 @@ setSelectedFiles(prev => ({
         <h1 className="text-2xl font-bold text-gray-800">My Patents</h1>
       </div>
 
-      {patents.length === 0 ? (
+      {!isConnected ? (
+        <div className="p-8 text-center bg-gray-50 rounded-lg">
+          <FiFileText className="mx-auto w-12 h-12 text-gray-400" />
+          <h3 className="mt-2 text-lg font-medium text-gray-900">
+            Wallet Not Connected
+          </h3>
+          <p className="mt-1 text-gray-500">
+            Please connect your wallet to view your patents
+          </p>
+        </div>
+      ) : patents.length === 0 ? (
         <div className="p-8 text-center bg-gray-50 rounded-lg">
           <FiFileText className="mx-auto w-12 h-12 text-gray-400" />
           <h3 className="mt-2 text-lg font-medium text-gray-900">
