@@ -35,7 +35,8 @@ const Web3Uploader = () => {
   const [error, setError] = useState<string | null>(null);
   const [client, setClient] = useState<Client.Client | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [isInitializing, setIsInitializing] = useState(false); 
+  const [isInitializing, setIsInitializing] = useState(false);
+  const [emailVerificationSent, setEmailVerificationSent] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { contract, isConnected } = useContract() || {};
@@ -68,8 +69,9 @@ const Web3Uploader = () => {
     try {
       // First login (will send verification email)
       await c.login(userEmail as `${string}@${string}`);
+      setEmailVerificationSent(true);
       
-      // Wait for user to verify email
+      // Show verification message
       toast.loading("Please check your email to verify your account...", { 
         id: toastId,
         duration: 10000 // Show for 10 seconds
@@ -314,14 +316,29 @@ const Web3Uploader = () => {
               placeholder="your@email.com"
               required
             />
-            <button
-              type="button"
-              className="px-4 py-2 mt-2 text-white bg-blue-600 rounded hover:bg-blue-700"
-              onClick={initializeClient}
-              disabled={isInitializing || isAuthenticated}
-            >
-              {isAuthenticated ? "Authenticated" : isInitializing ? "Connecting..." : "Connect to Web3.Storage"}
-            </button>
+            <div className="mt-2 space-y-2">
+              <button
+                type="button"
+                className="px-4 py-2 w-full text-white bg-blue-600 rounded hover:bg-blue-700"
+                onClick={initializeClient}
+                disabled={isInitializing || isAuthenticated || emailVerificationSent}
+              >
+                {isAuthenticated 
+                  ? "Authenticated" 
+                  : isInitializing 
+                    ? "Sending verification..." 
+                    : emailVerificationSent
+                      ? "Verification Email Sent"
+                      : "Connect to Web3.Storage"}
+              </button>
+              {emailVerificationSent && !isAuthenticated && (
+                <div className="p-2 text-sm text-blue-700 bg-blue-50 rounded-md">
+                  <p>✅ Verification email sent to <strong>{userEmail}</strong></p>
+                  <p className="mt-1">Please check your inbox and click the verification link to continue.</p>
+                  <p className="mt-1 text-xs text-blue-600">Didn't receive it? Check spam or try again in a moment.</p>
+                </div>
+              )}
+            </div>
           </div>
 
           <div>
