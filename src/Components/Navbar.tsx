@@ -44,6 +44,7 @@ const Navbar = () => {
     <Link to="/" className="mr-4 text-white hover:text-gray-300">All Patents</Link>
     <Link to="/create" className="mr-4 text-white hover:text-gray-300">Create Patent</Link>
     <Link to="/my-patents" className="mr-4 text-white hover:text-gray-300">My Patents</Link>
+    <Link to="/web3Uploader" className="mr-4 text-white hover:text-gray-300">Web3 Uploader</Link>
    </div>
   
     {/* Wallet Button */}

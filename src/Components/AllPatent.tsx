@@ -204,12 +204,12 @@ const AllPatent = () => {
   if (!contract) {
     return (
       <div className="p-8 text-center">
-        <div className="p-4 bg-red-100 border border-red-400 text-red-700 rounded">
+        <div className="p-4 text-red-700 bg-red-100 rounded border border-red-400">
           <p className="font-bold">Connection Error</p>
           <p>Failed to connect to the blockchain. Please check your internet connection and try again.</p>
           <button 
             onClick={() => window.location.reload()} 
-            className="mt-2 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+            className="px-4 py-2 mt-2 text-white bg-blue-500 rounded hover:bg-blue-600"
           >
             Retry
           </button>
@@ -243,16 +243,25 @@ const AllPatent = () => {
             <div className="flex items-center space-x-2">
               {patent.ipfsHashes && patent.ipfsHashes.length > 0 ? (
                 patent.ipfsHashes.map((hash, idx) => (
-                  <div key={idx} className="flex items-center space-x-2">
-                    <span>File {idx + 1}:</span>
-                    <a
-                      href={`https://ipfs.io/ipfs/${hash}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-blue-500 hover:underline"
-                    >
-                      View File {idx + 1}
-                    </a>
+                  <div key={idx} className="mb-2">
+                    <div className="text-sm font-medium text-gray-700">File {idx + 1}:</div>
+                    <div className="flex flex-wrap gap-2 mt-1">
+                      {[
+                        { name: 'IPFS.io', url: `https://ipfs.io/ipfs/${hash}` },
+                        { name: 'Pinata', url: `https://gateway.pinata.cloud/ipfs/${hash}` },
+                      ].map((gateway, gIdx) => (
+                        <a
+                          key={gIdx}
+                          href={gateway.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 hover:bg-blue-200"
+                          title={`View on ${gateway.name}`}
+                        >
+                          {gateway.name}
+                        </a>
+                      ))}
+                    </div>
                   </div>
                 ))
               ) : (
