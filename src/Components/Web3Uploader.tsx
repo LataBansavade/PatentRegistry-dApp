@@ -66,30 +66,51 @@ const Web3Uploader = () => {
     const toastId = toast.loading("Authenticating with Web3.Storage...");
 
     try {
+      // First login (will send verification email)
       await c.login(userEmail as `${string}@${string}`);
+      
+      // Wait for user to verify email
+      toast.loading("Please check your email to verify your account...", { 
+        id: toastId,
+        duration: 10000 // Show for 10 seconds
+      });
 
-      toast.loading("Setting up storage space...", { id: toastId });
-
-      const spaces = await c.spaces();
-
+      // Poll for spaces until verification is complete
       let space;
-      if (spaces.length > 0) {
-        space = spaces[0];
-      } else {
-        space = await c.createSpace("patent-registry-space");
-        const recovery = `did:mailto:${userEmail}` as const;
-        await space.createRecovery(recovery);
+      let attempts = 0;
+      const maxAttempts = 30; // 30 attempts * 2 seconds = 1 minute timeout
+      
+      while (attempts < maxAttempts) {
+        try {
+          const spaces = await c.spaces();
+          if (spaces.length > 0) {
+            space = spaces[0];
+            break;
+          }
+          await new Promise(r => setTimeout(r, 2000)); // Wait 2 seconds between attempts
+          attempts++;
+        } catch (err) {
+          console.log("Waiting for email verification...", attempts);
+        }
       }
+
+      if (!space) {
+        throw new Error("Email verification timed out. Please check your email and try again.");
+      }
+
+      // Set up recovery (not needed in current Web3.Storage client)
+      // The space is already created and ready to use
+      console.log("Space created/retrieved successfully");
 
       await c.setCurrentSpace(space.did());
 
       setClient(c);
       setIsAuthenticated(true);
+      toast.success("Successfully connected to Web3.Storage!", { id: toastId });
 
-      toast.success("Connected to Web3.Storage!", { id: toastId });
     } catch (err) {
-      const msg = "Authentication failed. Please try again.";
-      console.error(msg, err);
+      const msg = err instanceof Error ? err.message : "Authentication failed. Please try again.";
+      console.error("Auth error:", err);
       toast.error(msg, { id: toastId });
       setError(msg);
     }
@@ -99,6 +120,12 @@ const Web3Uploader = () => {
     const toastId = toast.loading(`Uploading ${file.name}...`);
     try {
       if (!client) throw new Error("Web3 client not initialized");
+
+      // Check if we have a valid space
+      const spaces = await client.spaces();
+      if (spaces.length === 0) {
+        throw new Error("No storage space available. Please re-authenticate.");
+      }
 
       const rootCid = await client.uploadFile(file);
       const cid = rootCid.toString();
@@ -384,7 +411,19 @@ const Web3Uploader = () => {
             </div>
           )}
 
-          {error && <div className="p-2 text-red-700 bg-red-100 rounded-md">{error}</div>}
+          {error && (
+            <div className="p-2 text-red-700 bg-red-100 rounded-md">
+              {error}
+              {error.includes("verification") || error.includes("authenticate") ? (
+                <button 
+                  onClick={initializeClient}
+                  className="ml-2 px-2 py-1 text-sm bg-blue-100 text-blue-700 rounded hover:bg-blue-200"
+                >
+                  Re-authenticate
+                </button>
+              ) : null}
+            </div>
+          )}
 
           <button
             type="submit"
