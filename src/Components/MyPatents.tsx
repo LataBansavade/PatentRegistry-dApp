@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
   FiFile,
   FiClock,
@@ -8,6 +8,7 @@ import {
   FiPlus,
   FiUpload,
 } from "react-icons/fi";
+import Pagination from "./Pagination";
 import { useContract } from "../Provider/ContractProvider";
 import { formatDistanceToNow } from "date-fns";
 import { toast } from "react-hot-toast";
@@ -31,16 +32,33 @@ const MyPatents = () => {
   const { contract, address, isConnected } = useContract();
   const [editingId, setEditingId] = useState<number | null>(null);
   const [newDescription, setNewDescription] = useState("");
-
   const [uploadingHash, setUploadingHash] = useState<number | null>(null);
-  const [selectedFiles, setSelectedFiles] = useState<
-    Record<number, File | null>
-  >({});
+  const [selectedFiles, setSelectedFiles] = useState<Record<number, File | null>>({});
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(5);
 
   const PINATA_JWT = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySW5mb3JtYXRpb24iOnsiaWQiOiJkNjYxYjgwYy02MjMyLTQzOTktYjE3Zi05ZTNmYjlkMGJjNTAiLCJlbWFpbCI6ImxhdGFiYW5zYXZhZGUyNEBnbWFpbC5jb20iLCJlbWFpbF92ZXJpZmllZCI6dHJ1ZSwicGluX3BvbGljeSI6eyJyZWdpb25zIjpbeyJkZXNpcmVkUmVwbGljYXRpb25Db3VudCI6MSwiaWQiOiJGUkExIn0seyJkZXNpcmVkUmVwbGljYXRpb25Db3VudCI6MSwiaWQiOiJOWUMxIn1dLCJ2ZXJzaW9uIjoxfSwibWZhX2VuYWJsZWQiOmZhbHNlLCJzdGF0dXMiOiJBQ1RJVkUifSwiYXV0aGVudGljYXRpb25UeXBlIjoic2NvcGVkS2V5Iiwic2NvcGVkS2V5S2V5IjoiZTEwZThhYmU5ZWQ5ODNjNzhlMDAiLCJzY29wZWRLZXlTZWNyZXQiOiIwNDQxZmQ4MDNlZjVkY2Y2MWFjMWYyZjQxZTM5ZGE3ZWIyZmI2OGVlNDI1YTk2ZmRhMDg4YzQ5NGEzY2UyOWNiIiwiZXhwIjoxNzgyMjk4MDMzfQ.eiF4rWIbmc9kghOxk-T6nA6dYlZ3qJCCP0ZozwNZ_mY';
 
-  
-  
+
+  const handlePageChange = (pageNumber: number) => {
+    setCurrentPage(pageNumber);
+  };
+
+  const handleItemsPerPageChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    setItemsPerPage(Number(e.target.value));
+    setCurrentPage(1);
+  };
+
+  const currentPatents = useMemo(() => {
+    const indexOfLastItem = currentPage * itemsPerPage;
+    const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+    return patents.slice(indexOfFirstItem, indexOfLastItem);
+  }, [patents, currentPage, itemsPerPage]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [patents]);
+
   const fetchMyPatents = async () => {
     if (!contract || !address || !isConnected) {
       setIsLoading(false);
@@ -107,14 +125,11 @@ const MyPatents = () => {
       }
     };
 
-    // Reset loaded state when connection or contract changes
     setHasLoaded(false);
     
-    // Check connection immediately if already connected
     if (isConnected && contract) {
       checkConnection();
     } else {
-      // If not connected, set a small delay to allow for connection
       const timeoutId = setTimeout(() => {
         if (isMounted) {
           if (!isConnected || !contract) {
@@ -149,7 +164,6 @@ const MyPatents = () => {
       const tx = await contract.updateDescription(patentId, newDescription);
       await tx.wait();
 
-      // Update local state
       setPatents((prev) =>
         prev.map((patent) =>
           patent.id === patentId
@@ -195,20 +209,6 @@ const MyPatents = () => {
     }
   };
 
-  // Show loading state while checking for patents if we haven't loaded anything yet
-  if (isLoading || !hasLoaded) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[300px] space-y-4">
-        <div className="w-12 h-12 rounded-full border-t-2 border-b-2 border-green-500 animate-spin"></div>
-        <p className="text-gray-600">Loading your patents...</p>
-      </div>
-    );
-  }
-
-  if (error) {
-    return <div className="p-4 text-red-600 bg-red-50 rounded-md">{error}</div>;
-  }
-
   const handleFileChange = (
     e: React.ChangeEvent<HTMLInputElement>,
     patentId: number
@@ -233,18 +233,15 @@ const MyPatents = () => {
     formData.append("file", file);
 
     try {
-      // First, upload to IPFS via Pinata
-      
-            
       const uploadRes = await fetch(
         "https://api.pinata.cloud/pinning/pinFileToIPFS",
-      {
-        method: "POST",
-        headers: {
-          'Authorization': `Bearer ${PINATA_JWT}`
-        },
-        body: formData,
-      }
+        {
+          method: "POST",
+          headers: {
+            'Authorization': `Bearer ${PINATA_JWT}`
+          },
+          body: formData,
+        }
       );
 
       if (!uploadRes.ok) {
@@ -255,11 +252,9 @@ const MyPatents = () => {
       const result = await uploadRes.json();
       const ipfsHash = result.IpfsHash;
 
-      // Then add the hash to the patent
       const tx = await contract.addIPFSHash(patentId, ipfsHash);
       await tx.wait();
 
-      // Update local state
       setPatents((prev) =>
         prev.map((patent) =>
           patent.id === patentId
@@ -272,10 +267,10 @@ const MyPatents = () => {
       );
 
       toast.success("File added successfully");
-setSelectedFiles(prev => ({
-  ...prev,
-  [patentId]: null
-}));
+      setSelectedFiles(prev => ({
+        ...prev,
+        [patentId]: null
+      }));
     } catch (err) {
       console.error("Error adding file:", err);
       toast.error(
@@ -287,6 +282,19 @@ setSelectedFiles(prev => ({
       setUploadingHash(null);
     }
   };
+
+  if (isLoading || !hasLoaded) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[300px] space-y-4">
+        <div className="w-12 h-12 rounded-full border-t-2 border-b-2 border-green-500 animate-spin"></div>
+        <p className="text-gray-600">Loading your patents...</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return <div className="p-4 text-red-600 bg-red-50 rounded-md">{error}</div>;
+  }
 
   return (
     <div className="p-10 mx-10 max-w-6xl bg-white rounded-lg shadow-md sm:mx-auto">
@@ -315,172 +323,187 @@ setSelectedFiles(prev => ({
           </p>
         </div>
       ) : (
-        <div className="overflow-hidden bg-white rounded-lg border border-gray-200 shadow">
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
-                    Title
-                  </th>
-                  <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
-                    <FiFile className="inline mr-1" /> Files
-                  </th>
-                  <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
-                    <FiClock className="inline mr-1" /> Submitted
-                  </th>
-                  <th className="px-6 py-3 text-xs font-medium tracking-wider text-right text-gray-500 uppercase">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {patents.map((patent) => (
-                  <tr key={patent.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4">
-                      <div className="text-sm font-medium text-gray-900">
-                        {patent.title || "Untitled Patent"}
-                      </div>
-                      <div className="mt-1 text-xs text-gray-500 line-clamp-2">
-                        {editingId === patent.id ? (
-                          <div className="mt-1">
-                            <textarea
-                              value={newDescription}
-                              onChange={(e) =>
-                                setNewDescription(e.target.value)
-                              }
-                              className="p-2 w-full text-xs rounded border"
-                              rows={3}
-                              placeholder="Enter description"
-                            />
-                            <div className="flex justify-end mt-2 space-x-2">
-                              <button
-                                onClick={() => handleSaveEdit(patent.id)}
-                                className="px-2 py-1 text-xs text-white bg-blue-600 rounded hover:bg-blue-700"
-                              >
-                                Save
-                              </button>
-                              <button
-                                onClick={handleCancelEdit}
-                                className="px-2 py-1 text-xs text-gray-700 bg-gray-200 rounded hover:bg-gray-300"
-                              >
-                                Cancel
-                              </button>
-                            </div>
-                          </div>
-                        ) : (
-                          <div
-                            className="cursor-pointer"
-                            onClick={() =>
-                              handleEdit(patent.id, patent.description)
-                            }
-                          >
-                            {patent.description || "No description"}
-                          </div>
-                        )}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="space-y-2">
-                        {patent.ipfsHashes?.map((hash, idx) => (
-                          <div
-                            key={idx}
-                            className="flex items-center space-x-2"
-                          >
-                            <a
-                              href={`https://ipfs.io/ipfs/${hash}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="flex items-center text-sm text-blue-500 hover:underline"
-                            >
-                              <FiFile className="mr-1" /> File {idx + 1}
-                            </a>
-                          </div>
-                        ))}
+        <>
+          
 
-                        <div className="relative">
-                          {uploadingHash === patent.id ? (
-                            <div className="flex items-center text-xs text-gray-500">
-                              <div className="mr-2 w-4 h-4 rounded-full border-t-2 border-blue-500 border-solid animate-spin"></div>
-                              Uploading...
+          <div className="overflow-hidden bg-white rounded-lg border border-gray-200 shadow">
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
+                      Title
+                    </th>
+                    <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
+                      <FiFile className="inline mr-1" /> Files
+                    </th>
+                    <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
+                      <FiClock className="inline mr-1" /> Submitted
+                    </th>
+                    <th className="px-6 py-3 text-xs font-medium tracking-wider text-right text-gray-500 uppercase">
+                      Actions
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {currentPatents.map((patent) => (
+                    <tr key={patent.id} className="hover:bg-gray-50">
+                      <td className="px-6 py-4">
+                        <div className="text-sm font-medium text-gray-900">
+                          {patent.title || "Untitled Patent"}
+                        </div>
+                        <div className="mt-1 text-xs text-gray-500 line-clamp-2">
+                          {editingId === patent.id ? (
+                            <div className="mt-1">
+                              <textarea
+                                value={newDescription}
+                                onChange={(e) => setNewDescription(e.target.value)}
+                                className="p-2 w-full text-xs rounded border"
+                                rows={3}
+                                placeholder="Enter description"
+                              />
+                              <div className="flex justify-end mt-2 space-x-2">
+                                <button
+                                  onClick={() => handleSaveEdit(patent.id)}
+                                  className="px-2 py-1 text-xs text-white bg-blue-600 rounded hover:bg-blue-700"
+                                >
+                                  Save
+                                </button>
+                                <button
+                                  onClick={handleCancelEdit}
+                                  className="px-2 py-1 text-xs text-gray-700 bg-gray-200 rounded hover:bg-gray-300"
+                                >
+                                  Cancel
+                                </button>
+                              </div>
                             </div>
                           ) : (
-                            <div className="flex flex-col space-y-2">
-                              <label className="flex items-center text-xs text-blue-500 cursor-pointer hover:underline">
-                                <FiPlus className="mr-1" />
-                                Add File
-                                <input
-                                  type="file"
-                                  className="hidden"
-                                  onChange={(e) =>
-                                    handleFileChange(e, patent.id)
-                                  }
-                                  data-patent-id={patent.id.toString()}
-                                />
-                              </label>
-                              {selectedFiles[patent.id] && (
-                                <div className="flex items-center space-x-2">
-                                  <span className="text-xs text-gray-600 truncate max-w-[120px]">
-                                    {selectedFiles[patent.id]?.name}
-                                  </span>
-                                  <button
-                                    onClick={() => handleAddIPFSHash(patent.id)}
-                                    className="px-2 py-1 text-xs text-white bg-green-600 rounded hover:bg-green-700"
-                                    disabled={!selectedFiles[patent.id]}
-                                  >
-                                    <FiUpload className="w-3 h-3" />
-                                  </button>
-                                </div>
-                              )}
+                            <div
+                              className="cursor-pointer"
+                              onClick={() => handleEdit(patent.id, patent.description)}
+                            >
+                              {patent.description || "No description"}
                             </div>
                           )}
                         </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 text-sm text-gray-500">
-                      {patent.timestamp
-                        ? formatDistanceToNow(
-                            new Date(patent.timestamp * 1000),
-                            { addSuffix: true }
-                          )
-                        : "N/A"}
-                    </td>
-                    <td className="px-6 py-4 text-sm font-medium text-right whitespace-nowrap">
-                      <div className="flex justify-end space-x-2">
-                        <button
-                          onClick={() =>
-                            handleEdit(patent.id, patent.description)
-                          }
-                          disabled={
-                            deletingId === patent.id || editingId === patent.id
-                          }
-                          className="p-2 text-blue-600 rounded-full transition-colors duration-200 hover:bg-blue-50 disabled:opacity-50"
-                          title="Edit Description"
-                        >
-                          <FiEdit2 className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(patent.id)}
-                          disabled={
-                            deletingId === patent.id || editingId === patent.id
-                          }
-                          className="p-2 text-red-600 rounded-full transition-colors duration-200 hover:bg-red-50 disabled:opacity-50"
-                          title="Delete Patent"
-                        >
-                          {deletingId === patent.id ? (
-                            <div className="w-4 h-4 rounded-full border-2 border-red-600 animate-spin border-t-transparent"></div>
-                          ) : (
-                            <FiTrash2 className="w-4 h-4" />
-                          )}
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="space-y-2">
+                          {patent.ipfsHashes?.map((hash, idx) => (
+                            <div key={idx} className="flex items-center space-x-2">
+                              <a
+                                href={`https://ipfs.io/ipfs/${hash}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="flex items-center text-sm text-blue-500 hover:underline"
+                              >
+                                <FiFile className="mr-1" /> File {idx + 1}
+                              </a>
+                            </div>
+                          ))}
+
+                          <div className="relative">
+                            {uploadingHash === patent.id ? (
+                              <div className="flex items-center text-xs text-gray-500">
+                                <div className="mr-2 w-4 h-4 rounded-full border-t-2 border-blue-500 border-solid animate-spin"></div>
+                                Uploading...
+                              </div>
+                            ) : (
+                              <div className="flex flex-col space-y-2">
+                                <label className="flex items-center text-xs text-blue-500 cursor-pointer hover:underline">
+                                  <FiPlus className="mr-1" />
+                                  Add File
+                                  <input
+                                    type="file"
+                                    className="hidden"
+                                    onChange={(e) => handleFileChange(e, patent.id)}
+                                    data-patent-id={patent.id.toString()}
+                                  />
+                                </label>
+                                {selectedFiles[patent.id] && (
+                                  <div className="flex items-center space-x-2">
+                                    <span className="max-w-[120px] text-xs text-gray-600 truncate">
+                                      {selectedFiles[patent.id]?.name}
+                                    </span>
+                                    <button
+                                      onClick={() => handleAddIPFSHash(patent.id)}
+                                      className="px-2 py-1 text-xs text-white bg-green-600 rounded hover:bg-green-700"
+                                      disabled={!selectedFiles[patent.id]}
+                                    >
+                                      <FiUpload className="w-3 h-3" />
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 text-sm text-gray-500">
+                        {patent.timestamp
+                          ? formatDistanceToNow(
+                              new Date(patent.timestamp * 1000),
+                              { addSuffix: true }
+                            )
+                          : "N/A"}
+                      </td>
+                      <td className="px-6 py-4 text-sm font-medium text-right whitespace-nowrap">
+                        <div className="flex justify-end space-x-2">
+                          <button
+                            onClick={() => handleEdit(patent.id, patent.description)}
+                            disabled={deletingId === patent.id || editingId === patent.id}
+                            className="p-2 text-blue-600 rounded-full transition-colors duration-200 hover:bg-blue-50 disabled:opacity-50"
+                            title="Edit Description"
+                          >
+                            <FiEdit2 className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => handleDelete(patent.id)}
+                            disabled={deletingId === patent.id || editingId === patent.id}
+                            className="p-2 text-red-600 rounded-full transition-colors duration-200 hover:bg-red-50 disabled:opacity-50"
+                            title="Delete Patent"
+                          >
+                            {deletingId === patent.id ? (
+                              <div className="w-4 h-4 rounded-full border-2 border-red-600 animate-spin border-t-transparent"></div>
+                            ) : (
+                              <FiTrash2 className="w-4 h-4" />
+                            )}
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
-        </div>
+
+          {patents.length > 0 && (
+            <div className="mt-4">
+              <div className="flex justify-between items-center mb-4">
+                <div className="flex items-center space-x-2">
+                  <span className="text-sm text-gray-600">Items per page:</span>
+                  <select
+                    value={itemsPerPage}
+                    onChange={handleItemsPerPageChange}
+                    className="p-1 text-sm rounded border"
+                  >
+                    <option value={5}>5</option>
+                    <option value={10}>10</option>
+                    <option value={20}>20</option>
+                    <option value={50}>50</option>
+                  </select>
+                </div>
+              </div>
+              <Pagination
+                currentPage={currentPage}
+                totalItems={patents.length}
+                itemsPerPage={itemsPerPage}
+                onPageChange={handlePageChange}
+              />
+            </div>
+          )}
+        </>
       )}
     </div>
   );

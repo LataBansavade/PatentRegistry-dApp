@@ -37,6 +37,7 @@ const Web3Uploader = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isInitializing, setIsInitializing] = useState(false);
   const [emailVerificationSent, setEmailVerificationSent] = useState(false);
+  const [isSubmitted, setIsSubmitted] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { contract, isConnected } = useContract() || {};
@@ -119,7 +120,7 @@ const Web3Uploader = () => {
   };
 
   const uploadToIPFS = async (file: File) => {
-    const toastId = toast.loading(`Uploading ${file.name}...`);
+    const toastId = "";
     try {
       if (!client) throw new Error("Web3 client not initialized");
 
@@ -289,6 +290,7 @@ const Web3Uploader = () => {
       setTitle("");
       setDescription("");
       setFiles([]);
+      setIsSubmitted(true);
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Transaction failed";
       toast.error(msg, { id: toastId });
@@ -300,10 +302,10 @@ const Web3Uploader = () => {
   };
 
   return (
-    <div className="py-5 min-h-screen text-black bg-black">
-      <div className="p-10 mx-auto max-w-3xl bg-white rounded-lg shadow-md">
+    <div className="py-4 md:py-8 min-h-screen text-black bg-black">
+      <div className="p-4 md:p-8 mx-auto max-w-3xl bg-white rounded-lg shadow-md">
         <Toaster position="top-right" />
-        <h1 className="mb-8 text-3xl font-bold text-gray-800">Create New Patent</h1>
+        <h1 className="mb-6 text-2xl md:text-3xl font-bold text-gray-800">Create New Patent</h1>
 
         <form onSubmit={handleSubmit} className="space-y-6">
           <div>
@@ -312,14 +314,14 @@ const Web3Uploader = () => {
               type="email"
               value={userEmail}
               onChange={(e) => setUserEmail(e.target.value)}
-              className="px-4 py-2 w-full rounded-md border"
+              className="px-4 py-3 md:py-2 w-full rounded-md border text-base md:text-sm"
               placeholder="your@email.com"
               required
             />
             <div className="mt-2 space-y-2">
               <button
                 type="button"
-                className="px-4 py-2 w-full text-white bg-blue-600 rounded hover:bg-blue-700"
+                className="px-4 py-3 md:py-2 w-full text-white bg-blue-600 rounded hover:bg-blue-700 text-base md:text-sm"
                 onClick={initializeClient}
                 disabled={isInitializing || isAuthenticated || emailVerificationSent}
               >
@@ -332,10 +334,10 @@ const Web3Uploader = () => {
                       : "Connect to Web3.Storage"}
               </button>
               {emailVerificationSent && !isAuthenticated && (
-                <div className="p-2 text-sm text-blue-700 bg-blue-50 rounded-md">
-                  <p>✅ Verification email sent to <strong>{userEmail}</strong></p>
-                  <p className="mt-1">Please check your inbox and click the verification link to continue.</p>
-                  <p className="mt-1 text-xs text-blue-600">Didn't receive it? Check spam or try again in a moment.</p>
+                <div className="p-3 text-sm text-blue-700 bg-blue-50 rounded-md">
+                  <p className="text-sm">✅ Verification email sent to <strong>{userEmail}</strong></p>
+                  <p className="mt-1 text-sm">Please check your inbox and click the verification link to continue.</p>
+                  <p className="mt-2 text-xs text-blue-600">Didn't receive it? Check spam or try again in a moment.</p>
                 </div>
               )}
             </div>
@@ -347,7 +349,7 @@ const Web3Uploader = () => {
               type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              className="px-4 py-2 w-full rounded-md border"
+              className="px-4 py-3 md:py-2 w-full rounded-md border text-base md:text-sm"
               placeholder="Enter title"
               required
             />
@@ -359,7 +361,7 @@ const Web3Uploader = () => {
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               rows={4}
-              className="px-4 py-2 w-full rounded-md border"
+              className="px-4 py-3 md:py-2 w-full rounded-md border text-base md:text-sm"
               placeholder="Describe your patent"
               required
             />
@@ -368,11 +370,12 @@ const Web3Uploader = () => {
           <div>
             <label className="block mb-2 text-sm font-medium text-gray-700">Upload Files</label>
             <div
-              className="p-6 text-center rounded-md border-2 border-dashed cursor-pointer hover:bg-gray-50"
+              className="p-4 md:p-6 text-center rounded-md border-2 border-dashed cursor-pointer hover:bg-gray-50 transition-colors duration-200 active:bg-gray-100"
               onClick={() => fileInputRef.current?.click()}
             >
-              <FiUpload className="mx-auto w-8 h-8 text-gray-400" />
-              <p className="mt-2 text-sm text-gray-600">Click or drag & drop</p>
+              <FiUpload className="mx-auto w-6 h-6 md:w-8 md:h-8 text-gray-400" />
+              <p className="mt-2 text-sm text-gray-600">Click or drag & drop files here</p>
+              <p className="mt-1 text-xs text-gray-500">Supports: PDF, DOC, JPG, PNG (max 10MB)</p>
             </div>
             <input
               ref={fileInputRef}
@@ -385,7 +388,7 @@ const Web3Uploader = () => {
           </div>
 
           {files.length > 0 && (
-            <div className="overflow-y-auto p-3 mt-4 space-y-2 max-h-60 rounded-md border">
+            <div className="overflow-y-auto p-2 md:p-3 mt-4 space-y-2 max-h-60 rounded-md border text-sm">
               {files.map((file, i) => (
                 <div key={i} className="flex justify-between items-center">
                   <div className="flex items-center space-x-2 truncate">
@@ -398,8 +401,10 @@ const Web3Uploader = () => {
                     ) : (
                       <FiFile />
                     )}
-                    <span className="text-sm truncate">{file.name}</span>
-                    <span className="text-xs text-gray-500">{formatFileSize(file.size)}</span>
+                    <div className="min-w-0">
+                      <p className="truncate text-sm">{file.name}</p>
+                      <p className="text-xs text-gray-500">{formatFileSize(file.size)}</p>
+                    </div>
                   </div>
                   <button
                     type="button"
@@ -434,7 +439,7 @@ const Web3Uploader = () => {
               {error.includes("verification") || error.includes("authenticate") ? (
                 <button 
                   onClick={initializeClient}
-                  className="ml-2 px-2 py-1 text-sm bg-blue-100 text-blue-700 rounded hover:bg-blue-200"
+                  className="px-2 py-1 ml-2 text-sm text-blue-700 bg-blue-100 rounded hover:bg-blue-200"
                 >
                   Re-authenticate
                 </button>
@@ -444,11 +449,23 @@ const Web3Uploader = () => {
 
           <button
             type="submit"
-            disabled={(!title || !description || isSubmitting || isUploading)}
-            className="px-6 py-2 w-full text-white bg-green-600 rounded-md hover:bg-green-700 disabled:opacity-50"
+            disabled={(!title || !description || isSubmitting || isUploading || !isAuthenticated)}
+            className="px-6 py-3 md:py-2 w-full text-white bg-green-600 rounded-md hover:bg-green-700 disabled:opacity-50 text-base md:text-sm font-medium"
           >
             {isUploading || isSubmitting ? "Processing..." : "Create Patent"}
           </button>
+
+          {isSubmitted && (
+            <div className="mt-4 text-center">
+              <p className="mb-3 text-sm text-gray-600">Patent created successfully!</p>
+              <a
+                href="/my-patents"
+                className="inline-flex items-center justify-center px-6 py-3 w-full md:w-auto text-white bg-blue-600 rounded-md hover:bg-blue-700 text-base md:text-sm font-medium"
+              >
+                View My Patents
+              </a>
+            </div>
+          )}
         </form>
       </div>
     </div>

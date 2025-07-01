@@ -7,6 +7,7 @@ import {
   FiAlertCircle,
   FiCheckCircle,
 } from "react-icons/fi";
+import Pagination from "./Pagination";
 import { useContract } from "../Provider/ContractProvider";
 import { formatDistanceToNow } from "date-fns";
 import toast, { Toaster } from "react-hot-toast";
@@ -18,19 +19,17 @@ interface Patent {
   description: string;
   ipfsHashes: string[];
   timestamp: number;
-  isDeleted: boolean; 
+  isDeleted: boolean;
 }
 
+const ITEMS_PER_PAGE = 10;
 
 const AllPatent = () => {
   const [patents, setPatents] = useState<Patent[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
   const { contract, isLoading: isContractLoading } = useContract();
-
-  // console.log("Contract:", contract);
-  // console.log("isContractLoading:", isContractLoading);
-  
 
   const showErrorToast = (message: string, duration = 3000) => {
     toast.error(message, {
@@ -42,12 +41,8 @@ const AllPatent = () => {
     });
   };
 
-  // Loading state is now handled by the UI component
-  // No need for a separate loading toast
-
   const parsePatentData = (patentData: any, index: number): Patent | null => {
     try {
-      // Skip if patent is deleted
       if (patentData.isDeleted) {
         return null;
       }
@@ -74,24 +69,19 @@ const AllPatent = () => {
 
       return patent;
     } catch (error) {
-      // const errorMsg = error instanceof Error ? error.message : "Unknown error";
-      // console.error(`Error parsing patent at index ${index}:`, errorMsg);
       return null;
     }
   };
 
   useEffect(() => {
     const fetchPatents = async () => {
-      // console.log('Fetching patents...');
-      // console.log('Contract state - isLoading:', isContractLoading, 'contract:', contract);
-      
       if (isContractLoading) {
-        // console.log('Contract is still loading...');
         return;
       }
-      
+
       if (!contract) {
-        const errorMsg = "Failed to connect to the contract. Please check your internet connection and try again.";
+        const errorMsg =
+          "Failed to connect to the contract. Please check your internet connection and try again.";
         console.error(errorMsg);
         setError(errorMsg);
         setIsLoading(false);
@@ -99,61 +89,31 @@ const AllPatent = () => {
         return;
       }
 
-    try {
-      setIsLoading(true);
-      setError(null);
+      try {
+        setIsLoading(true);
+        setError(null);
 
-      // Get the total number of patents
-      const totalPatents = await contract.patentCount();
-      // console.log('Total patents in contract:', totalPatents.toString());
-      
-      const allPatents = [];
+        const patentsData = await contract.getAllPatents();
 
-      // Fetch each patent individually
-      for (let i = 0; i < totalPatents; i++) {
-        try {
-          // console.log(`Fetching patent ${i}...`);
-          // Try direct call first, then fallback to staticCall if needed
-          let patent;
-          try {
-            patent = await contract.getPatent(i);
-          } catch (err) {
-            // console.log(`Direct call failed for patent ${i}, trying staticCall...`);
-            patent = await contract.getPatent.staticCall(i);
-          }
-          
-          // console.log(`Raw patent data for ${i}:`, patent);
-          const formatted = parsePatentData(patent, i);
-          // console.log(`Formatted patent ${i}:`, formatted);
-          
-          if (formatted) {
-            allPatents.push(formatted);
-          } else {
-            // console.log(`Skipping deleted patent ${i}`);
-          }
-        } catch (error: any) {
-          // Skip deleted patents
-          if (error.message && error.message.includes("Patent is deleted")) {
-            // console.log(`Patent ${i} is deleted, skipping...`);
-            continue;
-          }
-          // console.warn(`Error fetching patent ${i}:`, error);
+        // Process, format, and sort the patents by timestamp (newest first)
+        const allPatents = patentsData
+          .map((patent: any, index: number) => parsePatentData(patent, index))
+          .filter(Boolean)
+          .sort((a: Patent, b: Patent) => (b.timestamp || 0) - (a.timestamp || 0));
+
+        setPatents(allPatents);
+        setCurrentPage(1); // Reset to first page when data changes
+      } catch (error: unknown) {
+        const errorMessage =
+          error instanceof Error ? error.message : "Unknown error";
+        if (!errorMessage.includes("Patent is deleted")) {
+          const fullError = `Failed to load patents: ${errorMessage}`;
+          setError(fullError);
+          showErrorToast(fullError);
         }
+      } finally {
+        setIsLoading(false);
       }
-
-      setPatents(allPatents);
-
-    } catch (error: unknown) {
-      const errorMessage = error instanceof Error ? error.message : "Unknown error";
-      // Don't show error for "Patent is deleted" as it's expected
-      if (!errorMessage.includes("Patent is deleted")) {
-        const fullError = `Failed to load patents: ${errorMessage}`;
-        setError(fullError);
-        showErrorToast(fullError);
-      }
-    } finally {
-      setIsLoading(false);
-    }
     };
 
     fetchPatents();
@@ -166,6 +126,17 @@ const AllPatent = () => {
     return `${address.substring(0, 6)}...${address.slice(-4)}`;
   };
 
+  // Handle pagination
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+  };
+
+  // Get current patents based on pagination
+  const getCurrentPatents = () => {
+    const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+    return patents.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+  };
+
   // Handle error state with toast
   useEffect(() => {
     if (error) {
@@ -173,7 +144,10 @@ const AllPatent = () => {
     }
   }, [error]);
 
-
+  // Reset to first page when patents change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [patents.length]);
 
   // Show loading state with a subtle animation
   if (isContractLoading || isLoading) {
@@ -188,7 +162,9 @@ const AllPatent = () => {
             <div className="absolute top-0 left-0 w-16 h-16 rounded-full border-t-4 border-blue-500 animate-spin"></div>
           </div>
           <p className="font-medium text-gray-600">
-            {isContractLoading ? 'Connecting to contract...' : 'Loading patents...'}
+            {isContractLoading
+              ? "Connecting to contract..."
+              : "Loading patents..."}
           </p>
           <p className="text-sm text-gray-400">This may take a moment</p>
         </div>
@@ -202,9 +178,12 @@ const AllPatent = () => {
       <div className="p-8 text-center">
         <div className="p-4 text-red-700 bg-red-100 rounded border border-red-400">
           <p className="font-bold">Connection Error</p>
-          <p>Failed to connect to the blockchain. Please check your internet connection and try again.</p>
-          <button 
-            onClick={() => window.location.reload()} 
+          <p>
+            Failed to connect to the blockchain. Please check your internet
+            connection and try again.
+          </p>
+          <button
+            onClick={() => window.location.reload()}
             className="px-4 py-2 mt-2 text-white bg-blue-500 rounded hover:bg-blue-600"
           >
             Retry
@@ -240,11 +219,16 @@ const AllPatent = () => {
               {patent.ipfsHashes && patent.ipfsHashes.length > 0 ? (
                 patent.ipfsHashes.map((hash, idx) => (
                   <div key={idx} className="mb-2">
-                    <div className="text-sm font-medium text-gray-700">File {idx + 1}:</div>
+                    <div className="text-sm font-medium text-gray-700">
+                      File {idx + 1}:
+                    </div>
                     <div className="flex flex-wrap gap-2 mt-1">
                       {[
-                        { name: 'IPFS.io', url: `https://ipfs.io/ipfs/${hash}` },
-                        { name: 'Pinata', url: `https://gateway.pinata.cloud/ipfs/${hash}` },
+                        // { name: 'IPFS.io', url: `https://ipfs.io/ipfs/${hash}` },
+                        {
+                          name: "Pinata",
+                          url: `https://gateway.pinata.cloud/ipfs/${hash}`,
+                        },
                       ].map((gateway, gIdx) => (
                         <a
                           key={gIdx}
@@ -274,7 +258,7 @@ const AllPatent = () => {
       );
     } catch (error) {
       console.error("Error rendering patent:", error);
-      return null; 
+      return null;
     }
   };
 
@@ -337,9 +321,15 @@ const AllPatent = () => {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {patents.map(renderPatentRow).filter(Boolean)}
+                {getCurrentPatents().map(renderPatentRow).filter(Boolean)}
               </tbody>
             </table>
+            <Pagination
+              currentPage={currentPage}
+              totalItems={patents.length}
+              itemsPerPage={ITEMS_PER_PAGE}
+              onPageChange={handlePageChange}
+            />
           </div>
         </div>
       )}
